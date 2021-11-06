@@ -19,10 +19,14 @@ import java.util.regex.Pattern;
  *
  * Tick the option in Run/Debug < Launching < Terminate and Relaunch while launching.
  * Otherwise Eclipse just keeps rerunning the program and continues to eat up more ports.
+ * 
+ * This program can't handle keys that are subsets of other keys. Should be changed to use a
+ * TreeMap or order all codes by length, longest to shortest.
  */
 public class Server {
 	static String CODE_BOOK_PATH = "codebook.txt";
 	static HashMap<String, String> codeBook;
+	static String WORD_REGEX = "([\\w/\\d]+)";
 	
 	public static void main(String argv[]) throws Exception {
 		String clientSentence;
@@ -92,7 +96,7 @@ public class Server {
 				
 				System.out.printf("Loaded normal line %s:%s\n", splitLine.get(0), splitLine.get(1));
 			} else {
-				System.err.printf("Too few tabs in data line %i with %i sections: \"%s\"",
+				System.err.printf("Too few tabs in data line %d with %d sections: \"%s\"",
 						l,
 						splitLine.size(),
 						line);
@@ -102,27 +106,45 @@ public class Server {
 		return acronyms;
 	}
 	
-	public static void saveCodeBook(String filename) {
-		
-	}
-	
-	public static String decodeMessage(String message) {
-		message = message.toUpperCase();
-		
+	/**
+	 * Returns all keys in codeBook that are contained in the message.
+	 * Case sensitive.
+	 * @param message Message to look through.
+	 * @return List of keys from codeBook that are contained in message.
+	 */
+	public static List<String> findCodeWords(String message) {
 		List<String> foundCodes = new ArrayList<String>();
-		String ret;
-		Pattern wordPattern = Pattern.compile("([\\w/\\d]+)");
+		Pattern wordPattern = Pattern.compile(WORD_REGEX);
 		Matcher match = wordPattern.matcher(message);
 		
-		while(match.find()) {
-			System.out.printf("Found %s\n", match.group(1));
-			foundCodes.add(match.group(1));
+		while(match.find()) {	
+			if (codeBook.containsKey(match.group(1))) {
+				foundCodes.add(match.group(1));
+				System.out.printf("Found %s\n", match.group(1));
+			} else {
+				System.out.printf("Not replacing %s\n", match.group(1));
+			}
 		}
 		
-		// This Isn't Working
+		return foundCodes;
+	}
+	
+	/**
+	 * Decodes a message using the key:values in codeBook
+	 * assuming all keys match the WORD_REGEX.
+	 * 
+	 * @param message Message to decode
+	 * @return The decoded message..
+	 */
+	public static String decodeMessage(String message) {
+		message = message.toUpperCase();
+		List<String> foundCodes = findCodeWords(message);
+		
 		for (String code : foundCodes) {
 			System.out.printf("Replacing '%s' with '%s'\n", code, codeBook.get(code));
-			message.replaceAll(code, codeBook.get(code));
+			while (message.contains(code)) {
+				message = message.replaceAll(code, codeBook.get(code));
+			}
 			System.out.println(message);
 		}
 		
